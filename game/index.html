@@ -11797,12 +11797,14 @@ function collectSnapshot(){
     X.settings = st;
   } catch(e){}
   try { var AS = window.__altSave; if (AS && AS.collect) snap.extra.altSys = AS.collect(snap); } catch(e){}
+  try { if (window.__dvT) snap.extra.dev = 1; } catch(e){}
   return snap;
 }
 
 /* ---------------- restore: extras the code importers do not cover ---------------- */
 function applyExtra(X){
   if (!X) return;
+  try { if (X.dev) window.__dvT = 1; } catch(e){}
   try { var AS2 = window.__altSave; if (AS2 && AS2.restore && X.altSys) AS2.restore(X.altSys); } catch(e){}
   try {
     if (X.g){
@@ -14365,7 +14367,7 @@ window.__police = {
    defensive: a failed check changes nothing. */
 (function(){
   'use strict';
-  window.__GAME_VERSION = '95dcbd4';
+  window.__GAME_VERSION = 'b040bcc';
   var CHECK_MS = 45000, banner = null, reloadedFor = null;
   try { reloadedFor = sessionStorage.getItem('nc_reloaded_for'); } catch(e){}
   function $(id){ return document.getElementById(id); }
@@ -17842,6 +17844,7 @@ requestAnimationFrame(loop);
 
 </script>
 
+
 </body>
 <script>
 /* ================================================================
@@ -18976,6 +18979,165 @@ requestAnimationFrame(loop);
 } catch(e){}
 })();
 
+</script>
+
+<script>
+/* dev tools */
+(function(){
+  function h32(s){ var h = 5381, i, c; for (i = 0; i < s.length; i++){ c = s.charCodeAt(i); h = ((h << 5) + h + c) >>> 0; } return h; }
+  var SEQ_H = 1258824299, PW_H = 1204434700, MAXC = 999999999;
+  var DV = { open: false, god: false, infMoney: false, infAmmo: false, buf: '' };
+
+  /* damage path: wrap the live hurtPlayer so god mode blocks real damage */
+  try {
+    if (typeof hurtPlayer === 'function'){
+      var _dvHurt = hurtPlayer;
+      hurtPlayer = function(d){ if (DV.god) return; return _dvHurt(d); };
+    }
+  } catch(e){}
+
+  /* panel */
+  var panel = document.createElement('div');
+  panel.id = 'ncSysPanel';
+  panel.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:99999;width:324px;max-width:92vw;max-height:88vh;overflow-y:auto;background:#07080c;border:1px solid #ff2038;box-shadow:0 0 34px rgba(255,32,56,.35);color:#e9e9f2;padding:12px;display:none;font-size:13px';
+  var BTN = 'display:block;width:100%;margin:4px 0;background:#101118;color:#f2f2f7;border:1px solid rgba(255,32,56,.5);padding:8px 10px;font-weight:700;cursor:pointer;text-align:left;font-size:13px';
+  var BTNON = 'display:block;width:100%;margin:4px 0;background:rgba(255,32,56,.85);color:#fff;border:1px solid #ff8a96;padding:8px 10px;font-weight:700;cursor:pointer;text-align:left;font-size:13px';
+  var SEC = 'margin:10px 0 2px;color:#ff5b6c;font-size:11px;font-weight:800;letter-spacing:.12em';
+  panel.innerHTML =
+    '<div id="dvAsk">' +
+      '<div style="display:flex;gap:6px;align-items:center">' +
+        '<input id="dvPw" type="password" autocomplete="off" style="flex:1;background:#0c0d13;border:1px solid rgba(255,32,56,.5);color:#fff;padding:9px;font-size:14px;outline:none">' +
+        '<button id="dvOk" style="background:#101118;color:#fff;border:1px solid rgba(255,32,56,.5);padding:9px 12px;font-weight:800;cursor:pointer">OK</button>' +
+        '<button id="dvX1" style="background:none;color:#ff5b6c;border:none;padding:9px 6px;font-weight:800;cursor:pointer;font-size:15px">✕</button>' +
+      '</div>' +
+    '</div>' +
+    '<div id="dvMenu" style="display:none">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center">' +
+        '<b style="letter-spacing:.14em;color:#ff5b6c">DEV</b>' +
+        '<button id="dvX2" style="background:none;color:#ff5b6c;border:none;padding:4px 6px;font-weight:800;cursor:pointer;font-size:15px">✕</button>' +
+      '</div>' +
+      '<div id="dvStat" style="margin:6px 0;color:#9a9aad;font-size:12px;min-height:14px"></div>' +
+      '<div style="' + SEC + '">MONEY</div>' +
+      '<button data-a="money" style="' + BTN + '">Set money to max</button>' +
+      '<button data-a="infmoney" style="' + BTN + '">Infinite money</button>' +
+      '<div style="' + SEC + '">UNLOCKS</div>' +
+      '<button data-a="weapons" style="' + BTN + '">Unlock all weapons</button>' +
+      '<button data-a="gadgets" style="' + BTN + '">Unlock all gadgets</button>' +
+      '<button data-a="strike" style="' + BTN + '">Unlock call-in strike + 99 charges</button>' +
+      '<button data-a="vehicles" style="' + BTN + '">Unlock all vehicles</button>' +
+      '<button data-a="rank" style="' + BTN + '">Max SNI rank</button>' +
+      '<button data-a="life" style="' + BTN + '">Licences + graduation</button>' +
+      '<div style="' + SEC + '">PLAYER</div>' +
+      '<button data-a="god" style="' + BTN + '">God mode</button>' +
+      '<button data-a="infammo" style="' + BTN + '">Infinite ammo</button>' +
+      '<button data-a="maxammo" style="' + BTN + '">Max ammo now</button>' +
+      '<button data-a="heal" style="' + BTN + '">Full heal</button>' +
+      '<div style="' + SEC + '">WORLD</div>' +
+      '<button data-a="wanted" style="' + BTN + '">Clear wanted</button>' +
+      '<div style="' + SEC + '">SAVE</div>' +
+      '<div id="dvSave" style="margin:2px 0 6px;color:#9a9aad;font-size:12px"></div>' +
+      '<button data-a="wipe" style="' + BTN + '">Wipe to clean save</button>' +
+    '</div>';
+  document.body.appendChild(panel);
+  function qs(s){ return panel.querySelector(s); }
+  function qsa(s){ return panel.querySelectorAll(s); }
+  var pwInput = qs('#dvPw');
+
+  function say(msg){ var el = qs('#dvStat'); if (el) el.textContent = msg; }
+  function taint(){ try { window.__dvT = 1; } catch(e){} try { if (window.__saveVault && window.__saveVault.saveNow) window.__saveVault.saveNow(); } catch(e){} }
+  function hud(){ try { if (typeof updateHUD === 'function') updateHUD(); } catch(e){} }
+  function gbar(){ try { if (typeof renderGadgetBar === 'function') renderGadgetBar(); } catch(e){} }
+  function wbar(){ try { if (typeof renderWeaponBar === 'function') renderWeaponBar(); } catch(e){} }
+
+  function refresh(){
+    var map = { infmoney: DV.infMoney, god: DV.god, infammo: DV.infAmmo };
+    var bs = qsa('button[data-a]');
+    for (var i = 0; i < bs.length; i++){
+      var a = bs[i].getAttribute('data-a');
+      if (a in map) bs[i].style.cssText = map[a] ? BTNON : BTN;
+    }
+    var sv = qs('#dvSave');
+    if (sv) sv.textContent = window.__dvT ? 'This save is marked as a developer save.' : 'This save is clean.';
+  }
+
+  var wipeArm = false, wipeTimer = null;
+  var actions = {
+    money: function(){ G.coins = MAXC; hud(); say('Money set to max.'); },
+    infmoney: function(){ DV.infMoney = !DV.infMoney; if (DV.infMoney && G.coins < MAXC) G.coins = MAXC; hud(); say('Infinite money ' + (DV.infMoney ? 'on.' : 'off.')); },
+    weapons: function(){ if (typeof collection !== 'undefined') collection.found = WEAPONS.length; wbar(); say('All ' + WEAPONS.length + ' weapons unlocked.'); },
+    gadgets: function(){ GADGETS.forEach(function(g){ unlockedGadgets[g.id] = true; }); gbar(); say('All gadgets unlocked.'); },
+    strike: function(){ unlockedGadgets.strike = true; G.strikes = 99; G.strikeCd = 0; gbar(); say('Strike caller unlocked, 99 charges.'); },
+    vehicles: function(){ VEHICLES.forEach(function(v){ ownedVehicles[v.name] = true; }); say('All vehicles owned.'); },
+    rank: function(){ G.agencyRank = 2; G.missionsDone = Math.max(G.missionsDone || 0, 8); ['jetpack','drone','nv','portalgun','magnet','beacon','jetboots','emp','decoy','flash','laser','strike','swarm','petbot','phoenix','specs','boombox','timewatch','blackhole','shrink','gravboots','holoarmy'].forEach(function(g){ unlockedGadgets[g] = true; }); G.strikes = Math.max(G.strikes || 0, 10); gbar(); hud(); say('SNI rank maxed: Elite Operative.'); },
+    life: function(){ LIFE.licenceCar = true; LIFE.licencePilot = true; LIFE.graduated = true; say('Licences and graduation set.'); },
+    god: function(){ DV.god = !DV.god; say('God mode ' + (DV.god ? 'on.' : 'off.')); },
+    infammo: function(){ DV.infAmmo = !DV.infAmmo; say('Infinite ammo ' + (DV.infAmmo ? 'on.' : 'off.')); },
+    maxammo: function(){ WEAPONS.forEach(function(w, i){ var st = weaponState[i]; if (st && w.mag !== Infinity){ st.ammo = w.mag; st.reserve = 9999; } }); hud(); wbar(); say('All magazines and reserves maxed.'); },
+    heal: function(){ G.hp = G.maxHp; G.hunger = 20; try { player.air = 1; } catch(e){} hud(); say('Healed to full.'); },
+    wanted: function(){ LIFE.wanted = 0; hud(); say('Wanted cleared.'); },
+    wipe: function(){
+      if (!wipeArm){ wipeArm = true; say('Press wipe again within 3 seconds to erase everything and restart clean.'); wipeTimer = setTimeout(function(){ wipeArm = false; }, 3000); return; }
+      clearTimeout(wipeTimer);
+      try { G.playing = false; } catch(e){}
+      try { localStorage.clear(); } catch(e){}
+      try { sessionStorage.clear(); } catch(e){}
+      var done = false; function go(){ if (!done){ done = true; location.reload(); } }
+      try { var rq = indexedDB.deleteDatabase('nova-city-saves'); rq.onsuccess = go; rq.onerror = go; rq.onblocked = function(){ setTimeout(go, 500); }; } catch(e){ go(); }
+      setTimeout(go, 1500);
+    }
+  };
+  var allBtns = qsa('button[data-a]');
+  for (var bi = 0; bi < allBtns.length; bi++){
+    (function(b){
+      b.addEventListener('click', function(){
+        var a = b.getAttribute('data-a');
+        if (!actions[a]) return;
+        try { actions[a](); } catch(e){}
+        if (a !== 'wipe') taint();
+        refresh();
+      });
+    })(allBtns[bi]);
+  }
+
+  /* upkeep for the toggles */
+  setInterval(function(){
+    try {
+      if (DV.infMoney && typeof G !== 'undefined' && G.coins < MAXC){ G.coins = MAXC; hud(); }
+      if (DV.infAmmo && typeof WEAPONS !== 'undefined' && typeof weaponState !== 'undefined'){
+        var ch = false;
+        for (var i = 0; i < WEAPONS.length; i++){
+          var w = WEAPONS[i], st = weaponState[i];
+          if (st && w.mag !== Infinity){
+            if (st.ammo !== w.mag){ st.ammo = w.mag; ch = true; }
+            if (st.reserve < 9999){ st.reserve = 9999; ch = true; }
+          }
+        }
+        if (ch) hud();
+      }
+    } catch(e){}
+  }, 350);
+
+  /* open / close */
+  function openPrompt(){ DV.open = true; panel.style.display = 'block'; qs('#dvAsk').style.display = 'block'; qs('#dvMenu').style.display = 'none'; pwInput.value = ''; setTimeout(function(){ try { pwInput.focus(); } catch(e){} }, 30); }
+  function openMenu(){ qs('#dvAsk').style.display = 'none'; qs('#dvMenu').style.display = 'block'; refresh(); }
+  function closeAll(){ DV.open = false; panel.style.display = 'none'; try { pwInput.value = ''; } catch(e){} }
+  function submitPw(){ var v = (pwInput.value || '').toUpperCase().replace(/\s+/g, ''); if (h32(v) === PW_H) openMenu(); else closeAll(); }
+  qs('#dvOk').addEventListener('click', submitPw);
+  pwInput.addEventListener('keydown', function(e){ e.stopPropagation(); if (e.key === 'Enter') submitPw(); });
+  qs('#dvX1').addEventListener('click', closeAll);
+  qs('#dvX2').addEventListener('click', closeAll);
+
+  /* activation sequence */
+  window.addEventListener('keydown', function(e){
+    if (DV.open){ if (e.key === 'Escape'){ e.stopPropagation(); closeAll(); } return; }
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+    if (e.key && e.key.length === 1 && /[a-z]/i.test(e.key)){
+      DV.buf = (DV.buf + e.key.toUpperCase()).slice(-9);
+      if (DV.buf.length === 9 && h32(DV.buf) === SEQ_H){ DV.buf = ''; openPrompt(); }
+    }
+  }, true);
+})();
 </script>
 
 </body>
